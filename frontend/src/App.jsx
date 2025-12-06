@@ -3,7 +3,7 @@ import { Route, Routes, useLocation } from 'react-router-dom';
 import Home from './pages/home/Home';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import './app.css';
+import './App.css';
 
 
 
@@ -13,7 +13,7 @@ const App = () => {
     
 
   return (
-    <div>
+    <div className="app-container">
 
       <Routes>
         <Route path='/' element={<Home/>} />
