@@ -4,11 +4,11 @@ import axios from 'axios'
 import { ChevronUp } from 'lucide-react';
 import { toast } from 'react-toastify';
 
-const ChatMessage = () => {
+const ChatMessage = ({ searchQuery }) => {
 
   const {url, selectedIndex, user, setStaredMessage, staredMessage, fetchStaredMessages, chatMessages, setChatMessages} = useContext(contextContainer)
   const [activeDropdown, setActiveDropdown] = useState(null);
-  // const [message, setMessage] = useState([]);
+
   // console.log("Stared message data:",staredMessage);
   useEffect(() => {
     if (selectedIndex?._id && !selectedIndex.isStarred) {
@@ -147,12 +147,15 @@ const ChatMessage = () => {
     };
   }, []);
   
+  const filteredMessages = chatMessages.filter(msg =>
+    msg.messages.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
 
   return (
     <div className='w-full flex-1 overflow-y-auto p-4'>
-      {chatMessages.length > 0 ? (
-        chatMessages.map((msg, index) => (
+      {filteredMessages.length > 0 ? (
+        filteredMessages.map((msg, index) => (
           <div className={`mb-2 flex ${msg.senderId === user._id ? 'justify-end' : 'justify-start'}`}>
             <div className="dropdown dropdown-top">
               <div className={`flex items-center ${msg.senderId === user._id ? 'flex-row-reverse' : ''}`}>
@@ -220,7 +223,9 @@ const ChatMessage = () => {
 
         ))
       ) : (
-        <p className="text-gray-500 font-bold text-2xl flex justify-center">No messages yet</p>
+        <p className="text-gray-500 font-bold text-2xl flex justify-center">
+          {searchQuery ? 'No matching messages' : 'No messages yet'}
+        </p>
       )}
     </div>
   );
