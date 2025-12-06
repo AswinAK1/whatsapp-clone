@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState,useRef } from 'react';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faUser, faVideo, faPhone, faMagnifyingGlass, faFaceSmile, faPaperclip, faMicrophone, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faUser, faVideo, faPhone, faMagnifyingGlass, faFaceSmile, faPaperclip, faMicrophone, faXmark, faEllipsisV, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { contextContainer } from '../../context/ContextProvider';
 import ChatMessage from '../ChatMessage/ChatMessage';
 import axios from 'axios';
@@ -15,6 +15,10 @@ const UserChat = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedMessages, setSelectedMessages] = useState([]);
+  const [showUserChatDropdown, setShowUserChatDropdown] = useState(false);
+  const dropdownRef = useRef(null);
 
   // convert the selectedIndex last seen format
   const formattedLastSeen = (lastSeen) =>{
@@ -104,11 +108,73 @@ const UserChat = () => {
       fileInputRef.current.click();
     };
 
+    const handleSelectMessage = (messageId) => {
+      setSelectedMessages((prev) =>
+        prev.includes(messageId)
+          ? prev.filter((id) => id !== messageId)
+          : [...prev, messageId]
+      );
+    };
+
+    const handleDeleteSelected = async () => {
+      const token = localStorage.getItem("authToken");
+      try {
+        const response = await axios.post(
+          `${url}/api/messages/delete-selected`,
+          { messageIds: selectedMessages },
+          {
+            withCredentials: true,
+            headers: {
+              Authorization: token ? `Bearer ${token}` : undefined,
+            },
+          }
+        );
+  
+        if (response.data.success) {
+          setChatMessages((prev) =>
+            prev.filter((msg) => !selectedMessages.includes(msg._id))
+          );
+          setIsSelectionMode(false);
+          setSelectedMessages([]);
+        }
+      } catch (error) {
+        console.error("Error deleting selected messages:", error);
+      }
+    };
+
+    useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+          setShowUserChatDropdown(false);
+        }
+      };
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }, []);
+
+    useEffect(() => {
+      if (!isSelectionMode) {
+        setSelectedMessages([]);
+      }
+    }, [isSelectionMode]);
+
 
   return (
     <div className='flex flex-col h-full mt-12 w-5/6'>
       <div className='flex h-14 bg-[#2c2c2c] w-full items-center justify-between px-5 transition-all duration-300'>
-        {isSearchVisible ? (
+        {isSelectionMode ? (
+          <>
+            <div className='flex items-center gap-4'>
+              <FontAwesomeIcon icon={faXmark} style={{ color: "#ffffff" }} className='cursor-pointer h-5 w-5' onClick={() => setIsSelectionMode(false)} />
+              <p className='text-white'>{selectedMessages.length} selected</p>
+            </div>
+            {selectedMessages.length > 0 && (
+              <FontAwesomeIcon icon={faTrash} style={{ color: "#ffffff" }} className='cursor-pointer h-5 w-5' onClick={handleDeleteSelected} />
+            )}
+          </>
+        ) : isSearchVisible ? (
           <>
             <div className='w-full flex justify-end items-center'>
               <input
@@ -142,11 +208,24 @@ const UserChat = () => {
             <div className='flex items-center gap-6'>
               {selectedIndex?.fullName !== "Starred Messages" && <div className='flex gap-6 bg-[#494949] h-9 w-20 items-center rounded-md'><FontAwesomeIcon icon={faVideo} style={{ color: "#ffffff" }} className='ml-3' /><FontAwesomeIcon icon={faPhone} style={{ color: "#ffffff" }} /></div>}
               <FontAwesomeIcon icon={faMagnifyingGlass} style={{ color: "#ffffff", cursor: "pointer" }} onClick={() => setIsSearchVisible(true)} />
+              <div className='relative' ref={dropdownRef}>
+                <FontAwesomeIcon icon={faEllipsisV} style={{ color: "#ffffff", cursor: "pointer" }} onClick={() => setShowUserChatDropdown(prev => !prev)} />
+                {showUserChatDropdown && (
+                  <ul tabIndex={0} className="absolute right-0 mt-2 menu bg-base-100 rounded-box z-50 w-40 p-2 shadow-sm">
+                    <li onClick={() => {
+                      setIsSelectionMode(true);
+                      setShowUserChatDropdown(false);
+                    }}>
+                      <a>Select Messages</a>
+                    </li>
+                  </ul>
+                )}
+              </div>
             </div>
           </>
         )}
       </div>
-      <ChatMessage searchQuery={searchQuery} />
+      <ChatMessage searchQuery={searchQuery} isSelectionMode={isSelectionMode} setIsSelectionMode={setIsSelectionMode} selectedMessages={selectedMessages} onSelectMessage={handleSelectMessage} />
       {selectedIndex?.fullName === "Starred Messages" ? "" :
       <div className='mt-auto h-28 bg-[#2c2c2c] w-full flex'>
         <div className='mt-3 flex gap-3 ml-4 relative'>

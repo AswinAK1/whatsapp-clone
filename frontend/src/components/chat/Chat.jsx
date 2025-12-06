@@ -49,7 +49,7 @@
           </div>
         </div>
         <div className='mt-3 mb-4'>
-          <input type="text" className='bg-[#383838] w-72 ml-6 rounded-md px-2 py-1 text-xs  border-gray-400 focus:border-b-2 focus:border-green-00 outline-none ' placeholder='Search or start a new chat' value={searchTerm} onChange={(e)=> setSearchTerm(e.target.value)} />
+          <input type="text" className='bg-[#383838] w-72 ml-6 rounded-md px-2 py-1 text-xs  border-gray-400 focus:border-b-2 focus:border-green-00 outline-none text-white ' placeholder='Search or start a new chat' value={searchTerm} onChange={(e)=> setSearchTerm(e.target.value)} />
         </div>
         <div className='overflow-y-auto max-h-[75vh] pr-2'>
         <UserList users={filteredUser}/>

@@ -136,7 +136,61 @@ const deleteMessage = async (req, res) => {
 };
 
 
+const deleteSelectedMessages = async (req, res) => {
+  try {
+    const { messageIds } = req.body;        // expect: { messageIds: ["id1", "id2", ...] }
+    const userId = req.user._id;
+
+    if (!Array.isArray(messageIds) || messageIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "messageIds array is required and cannot be empty",
+      });
+    }
+
+    // Convert to ObjectId
+    const objectIds = messageIds.map((id) => new mongoose.Types.ObjectId(id));
+
+    // Find only messages that belong to this user (sender or receiver)
+    const messagesToDelete = await Message.find({
+      _id: { $in: objectIds },
+      $or: [{ senderId: userId }, { receiverId: userId }],
+    });
+
+    if (messagesToDelete.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No deletable messages found for this user",
+      });
+    }
+
+    const allowedIds = messagesToDelete.map((m) => m._id);
+
+    // 1) Remove message ids from any conversations containing them
+    await Conversation.updateMany(
+      { messages: { $in: allowedIds } },
+      { $pull: { messages: { $in: allowedIds } } }
+    );
+
+    // 2) Delete the messages themselves
+    const deleteResult = await Message.deleteMany({
+      _id: { $in: allowedIds },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Selected messages deleted successfully",
+      deletedCount: deleteResult.deletedCount,
+      deletedIds: allowedIds,
+    });
+  } catch (error) {
+    console.error("Error deleting selected messages:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
 
 
 
-export {sendMessage,getMessage, deleteMessage}
+
+
+export {sendMessage,getMessage, deleteMessage, deleteSelectedMessages}

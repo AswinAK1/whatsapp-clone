@@ -4,7 +4,7 @@ import axios from 'axios'
 import { ChevronUp } from 'lucide-react';
 import { toast } from 'react-toastify';
 
-const ChatMessage = ({ searchQuery }) => {
+const ChatMessage = ({ searchQuery, isSelectionMode, setIsSelectionMode, selectedMessages, onSelectMessage }) => {
 
   const {url, selectedIndex, user, setStaredMessage, staredMessage, fetchStaredMessages, chatMessages, setChatMessages} = useContext(contextContainer)
   const [activeDropdown, setActiveDropdown] = useState(null);
@@ -155,11 +155,20 @@ const ChatMessage = ({ searchQuery }) => {
   return (
     <div className='w-full flex-1 overflow-y-auto p-4'>
       {filteredMessages.length > 0 ? (
-        filteredMessages.map((msg, index) => (
-          <div className={`mb-2 flex ${msg.senderId === user._id ? 'justify-end' : 'justify-start'}`}>
+        filteredMessages.map((msg, index) => {
+          const isSelected = selectedMessages.includes(msg._id);
+          return (
+          <div 
+            key={msg._id || index} 
+            className={`mb-2 flex ${msg.senderId === user._id ? 'justify-end' : 'justify-start'} ${isSelectionMode ? 'cursor-pointer' : ''}`}
+            onClick={() => isSelectionMode && onSelectMessage(msg._id)}
+          >
             <div className="dropdown dropdown-top">
               <div className={`flex items-center ${msg.senderId === user._id ? 'flex-row-reverse' : ''}`}>
-                <div className={`flex items-end gap-2 ${msg.senderId === user._id ? 'flex-row-reverse' : 'flex-row'}`}>
+                <div className={`flex items-end gap-2 p-1 rounded-lg ${msg.senderId === user._id ? 'flex-row-reverse' : 'flex-row'} ${isSelected ? 'bg-blue-800 bg-opacity-50' : ''}`}>
+                  {isSelectionMode && (
+                    <input type="checkbox" checked={isSelected} readOnly className="checkbox checkbox-sm" />
+                  )}
                   
                   {/* Profile Image */}
                   <img
@@ -189,7 +198,7 @@ const ChatMessage = ({ searchQuery }) => {
                 </div>
                   
                 {/* Chevron dropdown */}
-                <button onClick={() => toggleDropdown(index)}>
+                <button onClick={(e) => { e.stopPropagation(); toggleDropdown(index); }}>
                   <ChevronUp
                     size={24}
                     className="ml-2 opacity-0 hover:opacity-100 text-gray-500 mt-1 mr-2"
@@ -214,14 +223,19 @@ const ChatMessage = ({ searchQuery }) => {
                     <li onClick={() => deleteMessage(msg._id)}>
                       <a>Delete</a>
                     </li>
+                    <li onClick={() => {
+                      setIsSelectionMode(true);
+                      onSelectMessage(msg._id);
+                      setActiveDropdown(null);
+                    }}>
+                      <a>Select</a>
+                    </li>
                   </ul>
                 )}
               </div>
             </div>
-          </div>
-
-
-        ))
+          </div>)
+        })
       ) : (
         <p className="text-gray-500 font-bold text-2xl flex justify-center">
           {searchQuery ? 'No matching messages' : 'No messages yet'}
