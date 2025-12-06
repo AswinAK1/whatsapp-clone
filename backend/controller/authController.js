@@ -1,9 +1,10 @@
-import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import generateOtp from "../middleware/nodeMailer.js";
 import User from "../model/useModel.js";
 import generateToken from "../utils/generateToken.js";
 import path from 'path';
+import bcrypt from "bcryptjs";
+
 
 
 
