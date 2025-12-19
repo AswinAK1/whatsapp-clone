@@ -8,12 +8,10 @@ import userRoute from './routes/userRoute.js'
 import aiChatRoute from './routes/aiChatRoute.js'
 import cors from 'cors';
 import User from './model/useModel.js'
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
+import { app, server } from './socket/socket.js'
 
 // api config
-const app = express()
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 
 // DB connection
 connectDB()
@@ -43,7 +41,6 @@ app.use('/api/aiChat',aiChatRoute)
 
 
 // Creating a ai user
-
 const createAiUser = async(req,res) =>{
   const existingBot = await User.findOne({email:"ai-boat@whatsappClone.com"});
   if(!existingBot){
@@ -63,7 +60,6 @@ const createAiUser = async(req,res) =>{
 createAiUser()
 
 
-
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`server is running on port http://localhost:${PORT}`);
 });

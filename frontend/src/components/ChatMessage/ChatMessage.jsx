@@ -6,15 +6,54 @@ import { toast } from 'react-toastify';
 
 const ChatMessage = ({ searchQuery, isSelectionMode, setIsSelectionMode, selectedMessages, onSelectMessage }) => {
 
-  const {url, selectedIndex, user, setStaredMessage, staredMessage, fetchStaredMessages, chatMessages, setChatMessages} = useContext(contextContainer)
+  const {
+    url,
+    selectedIndex,
+    user,
+    setStaredMessage,
+    staredMessage,
+    fetchStaredMessages,
+    chatMessages,
+    setChatMessages,
+    socket,
+  } = useContext(contextContainer)
+
   const [activeDropdown, setActiveDropdown] = useState(null);
 
-  // console.log("Stared message data:",staredMessage);
   useEffect(() => {
     if (selectedIndex?._id && !selectedIndex.isStarred) {
-      messages()
+      messages();
     }
   }, [selectedIndex])
+
+  // ✅ SOCKET LISTENER
+  useEffect(() => {
+    if (!socket) return;
+    if (!user?._id || !selectedIndex?._id) return;
+
+    const handleNewMessage = (msg) => {
+      // ids might be ObjectIds or strings – normalize to string
+      const senderId = msg.senderId?._id || msg.senderId;
+      const receiverId = msg.receiverId?._id || msg.receiverId;
+
+      const currentUserId = user._id;
+      const otherUserId = selectedIndex._id;
+
+      const isForThisChat =
+        (senderId === currentUserId && receiverId === otherUserId) ||
+        (senderId === otherUserId && receiverId === currentUserId);
+
+      if (!isForThisChat) return;
+
+      setChatMessages(prev => [...prev, msg]);
+    };
+
+    socket.on("newMessage", handleNewMessage);
+
+    return () => {
+      socket.off("newMessage", handleNewMessage);
+    };
+  }, [socket, user?._id, selectedIndex?._id, setChatMessages]);
 
   // delete the message
   const deleteMessage = async (messageId) => {

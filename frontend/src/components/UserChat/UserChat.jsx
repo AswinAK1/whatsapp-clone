@@ -34,56 +34,60 @@ const UserChat = () => {
   };
   
   const handleMessage = async () => {
-    if (!selectedIndex?._id) {
-      console.error("Selected user not found");
-      return;
-    }
-    
-    const token = localStorage.getItem("authToken");
-    
-    try {
+  if (!selectedIndex?._id) {
+    console.error("Selected user not found");
+    return;
+  }
 
-      if(selectedIndex?.fullName === 'AI Bot'){
-        const response = await axios.post(`${url}/api/aiChat/send`,{
-          userId:user._id, message:inputMessage
-        },{
+  if (!inputMessage.trim()) return;
+
+  const token = localStorage.getItem("authToken");
+
+  try {
+    if (selectedIndex?.fullName === 'AI Bot') {
+      // AI flow (no socket, keep as is)
+      const response = await axios.post(
+        `${url}/api/aiChat/send`,
+        { userId: user._id, message: inputMessage },
+        {
           withCredentials: true,
           headers: {
             Authorization: token ? `Bearer ${token}` : undefined,
           },
-        })
-        console.log("Ai chat message");
-        setInputMessage('')
-        setChatMessages((prev) => [
-          ...prev,
-          { senderId: user._id, messages: inputMessage },
-          { senderId: selectedIndex._id, messages: response?.data?.aiReply }
-        ]);
-        console.log("Ai chat message:",chatMessages);
-        
-      }else{
+        }
+      );
 
-        const response = await axios.post(
-          `${url}/api/messages/send/${selectedIndex._id}`,
-          { message: inputMessage },
-          {
-            withCredentials: true,
-            headers: {
-              Authorization: token ? `Bearer ${token}` : undefined,
-            },
-          }
-        );
-    
-        console.log("Message sent successfully:", response?.data?.messages);
-        setInputMessage('');
-        setChatMessages((prev) => [...prev, response.data.messages]);
+      setInputMessage('');
+      // here you still manually push, because server likely not using socket for AI
+      setChatMessages((prev) => [
+        ...prev,
+        { senderId: user._id, messages: inputMessage },
+        { senderId: selectedIndex._id, messages: response?.data?.aiReply, isAiMessage: true }
+      ]);
+    } else {
+      // normal user-to-user chat
+      const response = await axios.post(
+        `${url}/api/messages/send/${selectedIndex._id}`,
+        { message: inputMessage },
+        {
+          withCredentials: true,
+          headers: {
+            Authorization: token ? `Bearer ${token}` : undefined,
+          },
+        }
+      );
 
-      }
+      console.log("Message sent successfully:", response?.data?.messages);
+      setInputMessage('');
 
-    } catch (error) {
-      console.error("Error sending message:", error?.response?.data || error);
+      // ❌ DO NOT manually push here – socket will handle it
+      // setChatMessages((prev) => [...prev, response.data.messages]);
     }
-  };
+
+  } catch (error) {
+    console.error("Error sending message:", error?.response?.data || error);
+  }
+};
 
   // send message to click the enter button
   const handleKeyDown = (event) =>{

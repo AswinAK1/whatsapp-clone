@@ -2,6 +2,7 @@ import Conversation from "../model/conversationModel.js";
 import Message from "../model/messageModel.js";
 import mongoose from "mongoose";
 import User from "../model/useModel.js";
+import { getReceiverSocketId, io } from "../socket/socket.js";
 
 
 
@@ -12,78 +13,71 @@ const sendMessage = async (req, res) => {
     const senderId = req.user._id;
 
     let conversation = await Conversation.findOne({
-      participants: { $all: [senderId, receiverId] }
+      participants: { $all: [senderId, receiverId] },
     });
 
     if (!conversation) {
       conversation = await Conversation.create({
-        participants: [senderId, receiverId]
+        participants: [senderId, receiverId],
       });
     }
 
     const newMessage = new Message({
-      senderId: senderId,
-      receiverId: receiverId,
-      messages: message
+      senderId,
+      receiverId,
+      messages: message,
     });
-
 
     conversation.messages.push(newMessage._id);
 
-    // Save the newMessage and converstion at the same time
-    await Promise.all([conversation.save(),newMessage.save()])
+    await Promise.all([conversation.save(), newMessage.save()]);
 
-  //   const populatedMessage = await Message.findById(newMessage._id)
-  //   .populate({
-  //     path: 'senderId',
-  //     select: 'profilePic fullName'
-  //   })
-  //   .populate({
-  //     path: 'receiverId',
-  //     select: 'profilePic fullName'
-  //   });
+    // REAL-TIME PART: emit message to receiver (and optionally sender)
+    const receiverSocketId = getReceiverSocketId(receiverId.toString());
+    const senderSocketId = getReceiverSocketId(senderId.toString());
 
-  // console.log("Populated Message:", populatedMessage);
-    res.status(201).json({ success:true, messages:newMessage});
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("newMessage", newMessage);
+    }
+
+    // if you want to also update sender's UI in real time (multi-tab, etc.)
+    if (senderSocketId && senderSocketId !== receiverSocketId) {
+      io.to(senderSocketId).emit("newMessage", newMessage);
+    }
+
+    res.status(201).json({ success: true, messages: newMessage });
   } catch (error) {
-    console.error(error)
+    console.error(error);
     res.status(500).json({ error: "Internal server error" });
   }
 };
 
 
 
-const getMessage = async(req,res) =>{
+const getMessage = async (req, res) => {
   try {
-    const {userId:userToCartId} = req.params;
-    const senderId = req.user._id
+    const { userId: userToChatId } = req.params;
+    const senderId = req.user._id;
 
     const conversation = await Conversation.findOne({
-      participants:{$all:[senderId,userToCartId]},
-    }).populate("messages")
-    
-    if(!conversation){
-      return res.status(404).json({ error: "Conversation not found" });
+      participants: { $all: [senderId, userToChatId] },
+    }).populate({
+      path: "messages",
+      options: { sort: { createdAt: 1 } },
+    });
+
+    if (!conversation) {
+      return res.status(200).json([]);
     }
 
-      // Fetch AI messages and user messages together
-    const aiMessages = await Message.find({
-      $or: [
-      { isAiMessage: true, receiverId: senderId }, // AI messages to the user
-      { senderId, receiverId: userToCartId }      // User messages to AI
-      ]
-    });
-    const allMessages = [...conversation.messages, ...aiMessages];
-
-    res.status(200).json(allMessages);
-    console.log(allMessages);
-    
-
-
+    return res.status(200).json(conversation.messages);
   } catch (error) {
     console.log(error);
+    return res.status(500).json({ error: "Internal server error" });
   }
-}
+};
+
+
 
 const deleteMessage = async (req, res) => {
   try {
@@ -138,7 +132,7 @@ const deleteMessage = async (req, res) => {
 
 const deleteSelectedMessages = async (req, res) => {
   try {
-    const { messageIds } = req.body;        // expect: { messageIds: ["id1", "id2", ...] }
+    const { messageIds } = req.body;
     const userId = req.user._id;
 
     if (!Array.isArray(messageIds) || messageIds.length === 0) {

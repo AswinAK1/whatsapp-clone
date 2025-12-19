@@ -120,7 +120,7 @@ const login = async(req,res) =>{
     }
 
     const token = await generateToken(user._id, res);
-    console.log("Generated Token:", token); // Debugging
+    console.log("Generated Token:", token);
 
 
     res.json({
@@ -172,7 +172,7 @@ const editUser = async(req,res) =>{
 
     if(req.file){
       if (req.file) {
-        user.profilePic = req.file.path.replace(/\\/g, '/'); // Fix for Windows paths
+        user.profilePic = req.file.path.replace(/\\/g, '/');
       }
       
     }

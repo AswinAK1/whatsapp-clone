@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { createContext,useEffect, useState } from 'react'
+import { io } from 'socket.io-client'      // ⬅️ add this
 import { toast } from 'react-toastify'
 
 export const contextContainer = createContext(null)
@@ -8,26 +9,22 @@ const ContextProvider = (props) =>{
   const url = "http://localhost:4000"
   // all user data in the chat section
   const [allUsers, setAllUsers] = useState([])
-
-  // selected user data
   const [selectedIndex, setSelectedIndex] = useState({})
-
-  // all stared messages
   const [staredMessage, setStaredMessage] = useState(new Set())
   const [starredMessagesData, setStarredMessagesData] = useState([])
   const [chatMessages, setChatMessages] = useState([]);
-  
+
+  const [socket, setSocket] = useState(null);   // ⬅️ NEW
+  console.log('socket state data',socket)
 
   const [user,setUser] = useState(()=>{
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
   })
 
-
   const setUserDetails = (userData) => {
     setUser(userData);
     localStorage.setItem("user",JSON.stringify(userData));
-
   }
 
   useEffect(() => {
@@ -36,7 +33,37 @@ const ContextProvider = (props) =>{
     }
   }, [user])
 
-  // fetch the stared messages
+  // ✅ INIT SOCKET WHEN USER LOGS IN
+  useEffect(() => {
+    if (!user?._id) {
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+      }
+      return;
+    }
+
+    const newSocket = io(url, {
+      query: { userId: user._id },   // server: socket.handshake.query.userId
+      withCredentials: true,
+    });
+
+    setSocket(newSocket);
+
+    newSocket.on("connect", () => {
+      console.log("Socket connected:", newSocket.id);
+    });
+
+    newSocket.on("disconnect", () => {
+      console.log("Socket disconnected");
+    });
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [user?._id]);  // re-init if user changes
+
+  // fetchStaredMessages...
   const fetchStaredMessages = async() => {
     try {
       if(!user){
@@ -50,13 +77,10 @@ const ContextProvider = (props) =>{
         headers: {
           Authorization: token ? `Bearer ${token}` : undefined,
         },
-      }
-      );
+      });
       if (response.data.success) {
         const starredIds = new Set(response.data.staredMessages);
         setStaredMessage(starredIds);
-        console.log('Data in the stares message :',starredIds);
-        
         setStarredMessagesData(response.data.staredMessages)
       } else {
         console.error("Failed to fetch starred messages:", response.data.message);
@@ -80,8 +104,10 @@ const ContextProvider = (props) =>{
     setStaredMessage,
     fetchStaredMessages,
     chatMessages,
-    setChatMessages
+    setChatMessages,
+    socket,
   }
+
   return(
     <contextContainer.Provider value={contextValue}>
       {props.children}
